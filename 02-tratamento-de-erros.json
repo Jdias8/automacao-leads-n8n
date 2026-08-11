@@ -1,0 +1,98 @@
+{
+  "name": "02 - Tratamento de erros - Leads",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -420,
+        0
+      ],
+      "id": "8cf657fc-f601-4e77-8297-839f62e66f6a",
+      "name": "Erro no workflow"
+    },
+    {
+      "parameters": {
+        "jsCode": "const evento = $input.first().json;\nconst execucao = evento.execution ?? {};\nconst workflow = evento.workflow ?? {};\nconst trigger = evento.trigger ?? {};\n\nconst mensagem = execucao.error?.message\n  ?? trigger.error?.message\n  ?? evento.error?.message\n  ?? 'Erro sem mensagem detalhada';\n\nconst ultimoNo = execucao.lastNodeExecuted\n  ?? trigger.lastNodeExecuted\n  ?? 'não informado';\n\nconst nomeWorkflow = workflow.name ?? 'workflow não informado';\nconst urlExecucao = execucao.url ?? '';\n\nconst escapar = (valor) => String(valor ?? '')\n  .replace(/&/g, '&amp;')\n  .replace(/</g, '&lt;')\n  .replace(/>/g, '&gt;')\n  .replace(/\\\"/g, '&quot;')\n  .replace(/'/g, '&#039;');\n\nreturn [{\n  json: {\n    assunto: `ERRO n8n: ${nomeWorkflow}`,\n    html: `\n      <h2>Falha em uma automação</h2>\n      <p><strong>Workflow:</strong> ${escapar(nomeWorkflow)}</p>\n      <p><strong>Último nó:</strong> ${escapar(ultimoNo)}</p>\n      <p><strong>Erro:</strong> ${escapar(mensagem)}</p>\n      ${urlExecucao ? `<p><a href=\"${escapar(urlExecucao)}\">Abrir execução no n8n</a></p>` : ''}\n    `,\n  },\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -180,
+        0
+      ],
+      "id": "15e5d2bc-933a-4d50-a6c0-c93cc89af6df",
+      "name": "Preparar alerta de erro"
+    },
+    {
+      "parameters": {
+        "fromEmail": "N8N <SEU_EMAIL@EXEMPLO.COM>",
+        "toEmail": "SEU_EMAIL@EXEMPLO.COM",
+        "subject": "={{ $json.assunto }}",
+        "emailFormat": "html",
+        "html": "={{ $json.html }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        60,
+        0
+      ],
+      "id": "3ab38529-685c-409d-b57f-674962550717",
+      "name": "Enviar alerta de erro"
+    },
+    {
+      "parameters": {
+        "content": "## DEPOIS DE IMPORTAR\n1. Troque o e-mail de exemplo.\n2. Selecione a credencial SMTP.\n3. Abra o workflow principal → configurações → Error workflow.\n4. Selecione este workflow.",
+        "height": 220,
+        "width": 420,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -360,
+        180
+      ],
+      "id": "14b06b1a-77dc-4456-995c-988d5be1242c",
+      "name": "Configurar tratamento de erro"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Erro no workflow": {
+      "main": [
+        [
+          {
+            "node": "Preparar alerta de erro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar alerta de erro": {
+      "main": [
+        [
+          {
+            "node": "Enviar alerta de erro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo"
+  },
+  "versionId": "c01187c5-1d22-4a64-adf9-4c3c8f390b92",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

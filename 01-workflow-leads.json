@@ -1,0 +1,498 @@
+{
+  "name": "01 - Captação e acompanhamento de leads",
+  "nodes": [
+    {
+      "parameters": {
+        "authentication": "none",
+        "formTitle": "Cadastro de novo lead",
+        "formDescription": "Preencha os dados abaixo para registrar o contato.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Nome",
+              "fieldName": "nome",
+              "fieldType": "text",
+              "placeholder": "Nome completo",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Telefone",
+              "fieldName": "telefone",
+              "fieldType": "text",
+              "placeholder": "(19) 99999-9999",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Serviço desejado",
+              "fieldName": "servico",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Automação de atendimento"
+                  },
+                  {
+                    "option": "Integração de sistemas"
+                  },
+                  {
+                    "option": "Automação de vendas"
+                  },
+                  {
+                    "option": "Outro"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Origem do lead",
+              "fieldName": "origem",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Indicação"
+                  },
+                  {
+                    "option": "Instagram"
+                  },
+                  {
+                    "option": "Google"
+                  },
+                  {
+                    "option": "LinkedIn"
+                  },
+                  {
+                    "option": "Prospecção ativa"
+                  },
+                  {
+                    "option": "Outro"
+                  }
+                ]
+              },
+              "requiredField": true
+            }
+          ]
+        },
+        "responseMode": "onReceived",
+        "options": {
+          "appendAttribution": false,
+          "buttonLabel": "Enviar",
+          "path": "cadastro-lead",
+          "respondWithOptions": {
+            "values": {
+              "respondWith": "text",
+              "formSubmittedText": "Obrigado! O lead foi recebido e será analisado."
+            }
+          },
+          "useWorkflowTimezone": true
+        }
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.5,
+      "position": [
+        -980,
+        -260
+      ],
+      "id": "d2b8660e-157a-4c10-a490-31f7af2ef755",
+      "name": "Formulário de teste",
+      "webhookId": "d36b2c44-56b9-42a6-acf5-b5e030ccbb76"
+    },
+    {
+      "parameters": {
+        "jsCode": "const entrada = $input.first().json;\n\nconst nome = String(entrada.nome ?? entrada.Nome ?? '').trim();\nconst telefoneOriginal = String(entrada.telefone ?? entrada.Telefone ?? '').trim();\nconst telefone = telefoneOriginal.replace(/\\D/g, '');\nconst servico = String(entrada.servico ?? entrada['Serviço desejado'] ?? '').trim();\nconst origem = String(entrada.origem ?? entrada['Origem do lead'] ?? '').trim();\n\nconst erros = [];\nif (nome.length < 2) erros.push('nome inválido');\nif (!/^\\d{10,13}$/.test(telefone)) erros.push('telefone deve ter entre 10 e 13 dígitos');\nif (!servico) erros.push('serviço desejado não informado');\nif (!origem) erros.push('origem do lead não informada');\n\nif (erros.length) {\n  throw new Error(`DADOS_INVALIDOS: ${erros.join('; ')}`);\n}\n\nconst formatar = (data) => new Intl.DateTimeFormat('pt-BR', {\n  timeZone: 'America/Sao_Paulo',\n  dateStyle: 'short',\n  timeStyle: 'short',\n}).format(data);\n\nconst agora = new Date();\nconst acompanhamento = new Date(agora.getTime() + 24 * 60 * 60 * 1000);\n\nreturn [{\n  json: {\n    nome,\n    telefone,\n    servico,\n    origem,\n    data: formatar(agora),\n    status: 'Pendente',\n    responsavel: 'João',\n    proximoAcompanhamento: formatar(acompanhamento),\n  },\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -740,
+        -260
+      ],
+      "id": "db48b45f-3d2a-4016-85c8-25b23d970f98",
+      "name": "Validar e preparar"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "documentId": {
+          "__rl": true,
+          "value": "COLE_O_ID_DA_PLANILHA_AQUI",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Leads",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -500,
+        -260
+      ],
+      "id": "a4181c62-ad33-44ae-a5c8-04f1591d9f2f",
+      "name": "Consultar telefones",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const lead = $('Validar e preparar').first().json;\nconst linhas = $input.all().map((item) => item.json);\nconst normalizarTelefone = (valor) => String(valor ?? '').replace(/\\D/g, '');\n\nconst duplicado = linhas.some((linha) => {\n  const existente = normalizarTelefone(linha.Telefone ?? linha.telefone);\n  return existente !== '' && existente === lead.telefone;\n});\n\nreturn [{\n  json: {\n    ...lead,\n    duplicado,\n    motivoDuplicidade: duplicado ? 'Telefone já cadastrado na planilha' : '',\n  },\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -260,
+        -260
+      ],
+      "id": "c3ca08c7-cf6e-4563-a6dd-2cd1e99685be",
+      "name": "Detectar telefone duplicado"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.duplicado }}",
+              "operation": "equal",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -20,
+        -260
+      ],
+      "id": "37c9d15c-ad50-428f-a7b6-37df92f0026a",
+      "name": "Telefone duplicado?"
+    },
+    {
+      "parameters": {
+        "fromEmail": "N8N <SEU_EMAIL@EXEMPLO.COM>",
+        "toEmail": "SEU_EMAIL@EXEMPLO.COM",
+        "subject": "=Telefone duplicado: {{ $json.nome }}",
+        "emailFormat": "html",
+        "html": "=<h2>Lead duplicado</h2><p><strong>Nome:</strong> {{ $json.nome }}</p><p><strong>Telefone:</strong> {{ $json.telefone }}</p><p><strong>Serviço:</strong> {{ $json.servico }}</p><p>Esse telefone já existe na planilha e não foi cadastrado novamente.</p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        240,
+        -380
+      ],
+      "id": "56a8caab-0a52-4a61-9750-92031b238eb7",
+      "name": "Avisar duplicidade"
+    },
+    {
+      "parameters": {
+        "jsCode": "const lead = $input.first().json;\n\nreturn [{\n  json: {\n    'Nome': lead.nome,\n    'Telefone': lead.telefone,\n    'Serviço desejado': lead.servico,\n    'Origem do lead': lead.origem,\n    'Data': lead.data,\n    'Status': lead.status,\n    'Responsável': lead.responsavel,\n    'Próximo acompanhamento': lead.proximoAcompanhamento,\n  },\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        -140
+      ],
+      "id": "c0d4f4a5-d462-4977-8b3c-22d406bc3a07",
+      "name": "Preparar linha da planilha"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "COLE_O_ID_DA_PLANILHA_AQUI",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Leads",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": null,
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "handlingExtraData": "ignoreIt"
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        500,
+        -140
+      ],
+      "id": "d78784a0-748a-40d6-84a8-33c1479ae06a",
+      "name": "Adicionar no Google Sheets"
+    },
+    {
+      "parameters": {
+        "fromEmail": "N8N <SEU_EMAIL@EXEMPLO.COM>",
+        "toEmail": "SEU_EMAIL@EXEMPLO.COM",
+        "subject": "=Novo lead: {{ $('Preparar linha da planilha').first().json.Nome }}",
+        "emailFormat": "html",
+        "html": "=<h2>Novo lead recebido</h2><p><strong>Nome:</strong> {{ $('Preparar linha da planilha').first().json.Nome }}</p><p><strong>Telefone:</strong> {{ $('Preparar linha da planilha').first().json.Telefone }}</p><p><strong>Serviço:</strong> {{ $('Preparar linha da planilha').first().json['Serviço desejado'] }}</p><p><strong>Origem:</strong> {{ $('Preparar linha da planilha').first().json['Origem do lead'] }}</p><p><strong>Próximo acompanhamento:</strong> {{ $('Preparar linha da planilha').first().json['Próximo acompanhamento'] }}</p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        760,
+        -140
+      ],
+      "id": "e49dccfe-c318-44f1-b721-b4ba804518b7",
+      "name": "Avisar responsável"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 8,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -740,
+        260
+      ],
+      "id": "096c9368-b666-48f1-8f5d-f5d468a6bf6e",
+      "name": "Todo dia às 08h"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "documentId": {
+          "__rl": true,
+          "value": "COLE_O_ID_DA_PLANILHA_AQUI",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Leads",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -500,
+        260
+      ],
+      "id": "8ab698f5-a78f-4d0b-94f1-43e8bb414eba",
+      "name": "Buscar leads para relatório",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const linhas = $input.all()\n  .map((item) => item.json)\n  .filter((linha) => Object.keys(linha).length > 0);\n\nconst normalizar = (valor) => String(valor ?? '').trim().toLocaleLowerCase('pt-BR');\nconst escaparHtml = (valor) => String(valor ?? '')\n  .replace(/&/g, '&amp;')\n  .replace(/</g, '&lt;')\n  .replace(/>/g, '&gt;')\n  .replace(/\\\"/g, '&quot;')\n  .replace(/'/g, '&#039;');\n\nconst pendentes = linhas.filter((linha) => {\n  const status = normalizar(linha.Status ?? linha.status);\n  return ['pendente', 'novo', 'em andamento', 'aguardando'].includes(status);\n});\n\nconst corpoTabela = pendentes.length\n  ? pendentes.map((linha) => `\n      <tr>\n        <td>${escaparHtml(linha.Nome)}</td>\n        <td>${escaparHtml(linha.Telefone)}</td>\n        <td>${escaparHtml(linha['Serviço desejado'])}</td>\n        <td>${escaparHtml(linha.Responsável)}</td>\n        <td>${escaparHtml(linha['Próximo acompanhamento'])}</td>\n      </tr>`).join('')\n  : '<tr><td colspan=\"5\">Nenhum lead pendente.</td></tr>';\n\nconst html = `\n  <h2>Relatório diário de leads pendentes</h2>\n  <p><strong>Total pendente:</strong> ${pendentes.length}</p>\n  <table border=\"1\" cellpadding=\"8\" cellspacing=\"0\" style=\"border-collapse:collapse\">\n    <thead>\n      <tr><th>Nome</th><th>Telefone</th><th>Serviço</th><th>Responsável</th><th>Próximo acompanhamento</th></tr>\n    </thead>\n    <tbody>${corpoTabela}</tbody>\n  </table>`;\n\nreturn [{\n  json: {\n    totalPendentes: pendentes.length,\n    assunto: `Relatório diário: ${pendentes.length} lead(s) pendente(s)`,\n    html,\n  },\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -260,
+        260
+      ],
+      "id": "fc66f824-ab71-4b92-a9dd-a097fb43ff1c",
+      "name": "Montar relatório diário"
+    },
+    {
+      "parameters": {
+        "fromEmail": "N8N <SEU_EMAIL@EXEMPLO.COM>",
+        "toEmail": "SEU_EMAIL@EXEMPLO.COM",
+        "subject": "={{ $json.assunto }}",
+        "emailFormat": "html",
+        "html": "={{ $json.html }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        -20,
+        260
+      ],
+      "id": "b5e93a4e-8d98-4cf0-b65a-5e1030131a95",
+      "name": "Enviar relatório diário"
+    },
+    {
+      "parameters": {
+        "content": "## CONFIGURAÇÃO OBRIGATÓRIA\n1. Troque `COLE_O_ID_DA_PLANILHA_AQUI` nos 3 nós do Google Sheets.\n2. Selecione sua credencial Google em cada nó.\n3. Troque `SEU_EMAIL@EXEMPLO.COM` nos 3 nós de e-mail.\n4. Selecione a mesma credencial SMTP em cada nó.\n5. Importe e configure o workflow de erros nas configurações deste workflow.",
+        "height": 300,
+        "width": 520,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        540,
+        180
+      ],
+      "id": "de4a73f3-87c9-4519-98e6-f69bfc4ea9ac",
+      "name": "Configuração"
+    },
+    {
+      "parameters": {
+        "content": "## FLUXO\n**Formulário → validação → consulta da planilha → duplicidade**\n\n- Se duplicado: avisa por e-mail e não salva.\n- Se novo: adiciona no Sheets e avisa o responsável.\n- Todos os dias às 08h: envia relatório dos leads pendentes.",
+        "height": 250,
+        "width": 460,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1160,
+        80
+      ],
+      "id": "646bc965-7b8d-4f4a-9645-8e1218a5812f",
+      "name": "Como funciona"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Formulário de teste": {
+      "main": [
+        [
+          {
+            "node": "Validar e preparar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar e preparar": {
+      "main": [
+        [
+          {
+            "node": "Consultar telefones",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar telefones": {
+      "main": [
+        [
+          {
+            "node": "Detectar telefone duplicado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detectar telefone duplicado": {
+      "main": [
+        [
+          {
+            "node": "Telefone duplicado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telefone duplicado?": {
+      "main": [
+        [
+          {
+            "node": "Avisar duplicidade",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Preparar linha da planilha",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar linha da planilha": {
+      "main": [
+        [
+          {
+            "node": "Adicionar no Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Adicionar no Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Avisar responsável",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Todo dia às 08h": {
+      "main": [
+        [
+          {
+            "node": "Buscar leads para relatório",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar leads para relatório": {
+      "main": [
+        [
+          {
+            "node": "Montar relatório diário",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar relatório diário": {
+      "main": [
+        [
+          {
+            "node": "Enviar relatório diário",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo"
+  },
+  "versionId": "2cfdc5ae-24db-48a3-87ff-83aa26c2c893",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
