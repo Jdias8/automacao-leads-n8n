@@ -1,5 +1,5 @@
 # Automação de Leads com n8n
-![Visão geral do workflow](image.png)
+![Visão geral do workflow](workflow.png)
 
 Criei este projeto para resolver um problema comum em empresas: receber leads, organizar os dados e avisar rapidamente a pessoa responsável pelo atendimento.
 
